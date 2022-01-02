@@ -171,7 +171,7 @@ class TrackInterpolator:
         icon_path = ':/plugins/track_interpolator/icon.png'
         self.add_action(
             icon_path,
-            text=self.tr(u'Menu Item Text'),
+            text=self.tr(u'Interpolate data from GPS track '),
             callback=self.run,
             parent=self.iface.mainWindow())
 
