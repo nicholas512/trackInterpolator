@@ -21,9 +21,11 @@
  *                                                                         *
  ***************************************************************************/
 """
-from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication
-from qgis.PyQt.QtGui import QIcon
-from qgis.PyQt.QtWidgets import QAction
+from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication  
+from qgis.PyQt.QtGui import QIcon  
+from qgis.PyQt.QtWidgets import QAction, QFileDialog  
+from qgis.core import QgsProject, Qgis, QgsLayerTreeLayer  
+    
 
 # Initialize Qt resources from file resources.py
 from .resources import *
@@ -31,6 +33,7 @@ from .resources import *
 from .track_interpolator_dialog import TrackInterpolatorDialog
 import os.path
 
+from .timestamp_maper import timestamp_mapper
 
 class TrackInterpolator:
     """QGIS Plugin Implementation."""
@@ -82,6 +85,11 @@ class TrackInterpolator:
         # noinspection PyTypeChecker,PyArgumentList,PyCallByClass
         return QCoreApplication.translate('TrackInterpolator', message)
 
+    def select_output_file(self):  
+        #filename, _filter = QFileDialog.getSaveFileName(  
+        #    self.dlg, "Select output filename and destination","layer_info", '*.txt')  
+        #self.dlg.lineEdit.setText(filename) 
+        pass 
 
     def add_action(
         self,
@@ -180,6 +188,38 @@ class TrackInterpolator:
             self.iface.removeToolBarIcon(action)
 
 
+    def updateGPSFieldList(self, index):
+        # first of all, clear the current contents of the combo
+        self.dlg.fieldBox.clear()
+
+        selected_name = self.dlg.comboBox.currentText()
+        
+        if selected_name:
+            selected_lyr = QgsProject.instance().mapLayersByName(selected_name)[0]
+            fields = [str(field.name()) for field in selected_lyr.fields()]
+
+        else: 
+            fields = []
+
+        # then, add the new items, based on the new index
+        self.dlg.fieldBox.addItems(fields)
+
+    def updateTableFieldList(self, index):
+        # first of all, clear the current contents of the combo
+        self.dlg.tableFieldBox.clear()
+
+        selected_name = self.dlg.tableDataBox.currentText()
+        
+        if selected_name:
+            selected_lyr = QgsProject.instance().mapLayersByName(selected_name)[0]
+            fields = [str(field.name()) for field in selected_lyr.fields()]
+
+        else: 
+            fields = []
+
+        # then, add the new items, based on the new index
+        self.dlg.tableFieldBox.addItems(fields)
+
     def run(self):
         """Run method that performs all the real work"""
 
@@ -188,6 +228,25 @@ class TrackInterpolator:
         if self.first_start == True:
             self.first_start = False
             self.dlg = TrackInterpolatorDialog()
+            self.dlg.toolButton.clicked.connect(self.select_output_file)  
+        
+        # Fetch the currently loaded layers
+        root = QgsProject.instance().layerTreeRoot()
+        layers = get_toc_layers(root)  
+        
+        # Clear the contents of the comboBox from previous runs  
+        self.dlg.comboBox.clear()
+        self.dlg.tableDataBox.clear()
+
+        # Populate the comboBox with names of all the loaded layers  
+        self.dlg.comboBox.addItems(layers)
+        self.dlg.tableDataBox.addItems(layers)
+        
+        # Set the layer box to update
+        self.dlg.comboBox.currentIndexChanged.connect(self.updateGPSFieldList)
+        self.updateGPSFieldList(0)
+        self.dlg.tableDataBox.currentIndexChanged.connect(self.updateTableFieldList)
+        self.updateTableFieldList(0)
 
         # show the dialog
         self.dlg.show()
@@ -197,4 +256,26 @@ class TrackInterpolator:
         if result:
             # Do something useful here - delete the line containing pass and
             # substitute with your code.
-            pass
+            gps_lname = self.dlg.comboBox.currentText()
+            gps_lyr = QgsProject.instance().mapLayersByName(gps_lname)[0]
+            
+            data_lname = self.dlg.tableDataBox.currentText()
+            data_lyr = QgsProject.instance().mapLayersByName(data_lname)[0]
+            
+            gps_time_field = self.dlg.fieldBox.currentText()
+            data_time_field = self.dlg.tableFieldBox.currentText()
+            timestamp_mapper(GPS_layer=gps_lyr, 
+                             GPS_time=gps_time_field, 
+                             data_table=data_lyr, 
+                             data_table_time=data_time_field)
+
+def get_toc_layers(group):
+    # List all layers in a group
+    layers = []
+    for child in group.children():
+        if isinstance(child, QgsLayerTreeLayer):
+            layers.append(child.layer().name())
+        else:
+            layers += [L for L in get_toc_layers(child)]
+    return layers
+
