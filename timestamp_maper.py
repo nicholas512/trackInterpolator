@@ -76,12 +76,13 @@ def get_timestamps(layer, fieldname):
     if len(layer) < 1:
         raise ValueError("No features in layer")
     
+    features = list(layer.getFeatures())
     ti = [i for i, field in enumerate(layer.fields()) if field.name() == fieldname][0] # TODO: get index from combovox instead of name
-    isQ = isinstance(layer.getFeature(0).attributes()[ti], QDateTime)
+    isQ = isinstance(features[0].attributes()[ti], QDateTime)
     
     times = list()
     
-    for feature in layer.getFeatures():
+    for feature in features:
         time = feature.attributes()[ti]
         if isQ:
             time = time.toString(format=Qt.ISODate)

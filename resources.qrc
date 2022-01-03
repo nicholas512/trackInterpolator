@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/plugins/track_interpolator" >
+        <file>icon.png</file>
+    </qresource>
+</RCC>
